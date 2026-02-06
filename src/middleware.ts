@@ -3,6 +3,10 @@ import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 
 export async function middleware(req: NextRequest) {
+  if (process.env.SKIP_AUTH === "true") {
+    return NextResponse.next();
+  }
+
   const token = await getToken({ req });
 
   if (!token) {
