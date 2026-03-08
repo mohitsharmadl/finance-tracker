@@ -392,11 +392,12 @@ def monthly_summary(month: str = Query(...)):
         cur.execute(
             """SELECT COALESCE(c.name, 'Uncategorized') as category,
                       SUM(t.amount) as total,
-                      COUNT(*) as cnt
+                      COUNT(*) as cnt,
+                      t.category_id
                FROM transactions t
                LEFT JOIN categories c ON t.category_id = c.id
                WHERE TO_CHAR(t.date, 'YYYY-MM') = %s AND t.txn_type = 'debit'
-               GROUP BY c.name
+               GROUP BY c.name, t.category_id
                ORDER BY total DESC""",
             (month,),
         )
@@ -406,6 +407,7 @@ def monthly_summary(month: str = Query(...)):
                 "name": r[0],
                 "amount": float(r[1] or 0),
                 "count": r[2],
+                "category_id": r[3],
             })
 
         # Previous month comparison

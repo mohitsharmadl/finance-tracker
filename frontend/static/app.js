@@ -163,7 +163,7 @@
             return;
         }
 
-        tbody.innerHTML = categories.map(function(c) {
+        tbody.innerHTML = categories.map(function(c, idx) {
             var p = totalSpend > 0 ? (c.amount / totalSpend * 100) : 0;
             var ch = c.change_pct;
             var chHtml;
@@ -172,9 +172,75 @@
             else if (ch < 0) chHtml = '<span style="color:var(--green);">' + ch.toFixed(1) + '%</span>';
             else chHtml = '<span style="color:var(--text-muted);">0%</span>';
 
-            return '<tr><td>' + c.name + '</td><td class="amount-debit">' + fmt(c.amount) + '</td><td>' + pct(p) + '</td><td>' + chHtml + '</td></tr>';
+            var catIdAttr = c.category_id != null ? c.category_id : 0;
+            return '<tr class="cat-row" data-cat-id="' + catIdAttr + '" data-cat-idx="' + idx + '" onclick="toggleCategoryDrill(this)">' +
+                '<td><span class="cat-expand-icon">&#9654;</span> ' + c.name + '</td>' +
+                '<td class="amount-debit">' + fmt(c.amount) + '</td><td>' + pct(p) + '</td><td>' + chHtml + '</td></tr>';
         }).join("");
     }
+
+    window.toggleCategoryDrill = async function(row) {
+        var catId = row.dataset.catId;
+        var existingDrill = row.nextElementSibling;
+
+        // If already expanded, collapse
+        if (existingDrill && existingDrill.classList.contains("cat-drill-row")) {
+            existingDrill.remove();
+            row.classList.remove("cat-row-expanded");
+            return;
+        }
+
+        // Collapse any other open drill
+        document.querySelectorAll(".cat-drill-row").forEach(function(r) { r.remove(); });
+        document.querySelectorAll(".cat-row-expanded").forEach(function(r) { r.classList.remove("cat-row-expanded"); });
+
+        row.classList.add("cat-row-expanded");
+
+        // Fetch transactions for this category
+        var params = "?month=" + currentMonth + "&category_id=" + catId + "&txn_type=debit&per_page=500";
+        var data = await api("/transactions" + params);
+        var txns = (data && data.transactions) || [];
+
+        var drillRow = document.createElement("tr");
+        drillRow.className = "cat-drill-row";
+        var td = document.createElement("td");
+        td.colSpan = 4;
+
+        if (!txns.length) {
+            td.innerHTML = '<div class="cat-drill-empty">No transactions</div>';
+        } else {
+            var html = '<div class="cat-drill-content"><table class="cat-drill-table"><thead><tr>' +
+                '<th>Date</th><th>Description</th><th>Amount</th><th>Category</th></tr></thead><tbody>';
+            txns.forEach(function(t) {
+                var catOpts = '<option value="">Uncategorized</option>';
+                allCategories.forEach(function(c) {
+                    var sel = (c.id === t.category_id) ? " selected" : "";
+                    catOpts += '<option value="' + c.id + '"' + sel + '>' + c.name + '</option>';
+                });
+                html += '<tr>' +
+                    '<td>' + fmtDate(t.date) + '</td>' +
+                    '<td title="' + (t.description || "").replace(/"/g, '&quot;') + '">' + truncate(t.description, 45) + '</td>' +
+                    '<td class="amount-debit">' + fmt(t.amount) + '</td>' +
+                    '<td><select class="cat-select" onchange="updateCategoryAndRefresh(' + t.id + ', this.value)">' + catOpts + '</select></td>' +
+                    '</tr>';
+            });
+            html += '</tbody></table></div>';
+            td.innerHTML = html;
+        }
+
+        drillRow.appendChild(td);
+        row.parentNode.insertBefore(drillRow, row.nextSibling);
+    };
+
+    window.updateCategoryAndRefresh = async function(txnId, catId) {
+        await api("/transactions/" + txnId + "/category", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category_id: catId ? parseInt(catId) : null })
+        });
+        // Refresh dashboard to reflect the category change
+        loadDashboard();
+    };
 
     // ====================================================================
     //  TRANSACTIONS
