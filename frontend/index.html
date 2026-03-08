@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Finance Tracker</title>
+    <link rel="stylesheet" href="/static/style.css?v=2">
+    <style>
+        .tab-content { display: none !important; }
+        .tab-content.active { display: block !important; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="header-top">
+                <div class="app-title">
+                    <span class="icon">F</span>
+                    Finance Tracker
+                </div>
+                <div class="header-right">
+                    <span class="header-month" id="current-period">Jan 2026</span>
+                    <button class="logout-btn" onclick="location.href='/auth/logout'">Sign Out</button>
+                </div>
+            </div>
+            <nav class="tab-nav">
+                <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+                <button class="tab-btn" data-tab="transactions">
+                    Transactions
+                    <span class="badge badge-warning" id="uncat-badge" style="display:none;margin-left:6px;">0</span>
+                </button>
+                <button class="tab-btn" data-tab="trends">Trends</button>
+                <button class="tab-btn" data-tab="upload">Upload</button>
+                <button class="tab-btn" data-tab="ishop">iShop</button>
+                <button class="tab-btn" data-tab="insights">Insights</button>
+            </nav>
+        </header>
+
+        <!-- ==================== DASHBOARD TAB ==================== -->
+        <div class="tab-content active" id="tab-dashboard">
+            <div class="cards-grid">
+                <div class="card">
+                    <div class="card-label">Total Spend</div>
+                    <div class="card-value red" id="dash-total-spend">--</div>
+                    <div class="card-sub" id="dash-spend-txns">-- transactions</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Total Income</div>
+                    <div class="card-value green" id="dash-total-income">--</div>
+                    <div class="card-sub" id="dash-income-txns">-- transactions</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Net Burn</div>
+                    <div class="card-value" id="dash-net-burn">--</div>
+                    <div class="card-sub" id="dash-burn-sub">spend - income</div>
+                </div>
+            </div>
+
+            <div class="two-col">
+                <div class="chart-box">
+                    <div class="chart-title">Spend by Category</div>
+                    <div class="chart-wrap">
+                        <canvas id="chart-donut"></canvas>
+                    </div>
+                </div>
+                <div class="table-wrap" style="max-height:380px;overflow-y:auto;">
+                    <table id="table-category-breakdown">
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable('table-category-breakdown',0)">Category <span class="sort-arrow">&#9650;</span></th>
+                                <th onclick="sortTable('table-category-breakdown',1)">Amount <span class="sort-arrow">&#9650;</span></th>
+                                <th onclick="sortTable('table-category-breakdown',2)">% of Total <span class="sort-arrow">&#9650;</span></th>
+                                <th onclick="sortTable('table-category-breakdown',3)">vs Last Month <span class="sort-arrow">&#9650;</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="cat-breakdown-body">
+                            <tr><td colspan="4" class="empty-state"><div class="empty-text">Loading...</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TRANSACTIONS TAB ==================== -->
+        <div class="tab-content" id="tab-transactions">
+            <div class="filter-bar">
+                <label>Month</label>
+                <input type="month" id="txn-month" value="2026-01">
+                <label>Source</label>
+                <select id="txn-source">
+                    <option value="">All Sources</option>
+                    <option value="hdfc_bank">HDFC Bank</option>
+                    <option value="icici_bank">ICICI Bank</option>
+                    <option value="icici_cc">ICICI CC</option>
+                    <option value="hdfc_cc">HDFC CC</option>
+                    <option value="amex_cc">AMEX CC</option>
+                </select>
+                <label>Category</label>
+                <select id="txn-category">
+                    <option value="">All Categories</option>
+                </select>
+                <button class="btn btn-primary btn-sm" onclick="loadTransactions()">Apply</button>
+            </div>
+
+            <div class="table-wrap">
+                <table id="table-transactions">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('table-transactions',0)">Date <span class="sort-arrow">&#9650;</span></th>
+                            <th onclick="sortTable('table-transactions',1)">Description <span class="sort-arrow">&#9650;</span></th>
+                            <th onclick="sortTable('table-transactions',2)">Amount <span class="sort-arrow">&#9650;</span></th>
+                            <th>Category</th>
+                            <th onclick="sortTable('table-transactions',4)">Source <span class="sort-arrow">&#9650;</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="txn-body">
+                        <tr><td colspan="5" class="empty-state"><div class="empty-text">Select filters and click Apply</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ==================== TRENDS TAB ==================== -->
+        <div class="tab-content" id="tab-trends">
+            <div class="two-col">
+                <div class="chart-box">
+                    <div class="chart-title">Monthly Total Spend (Last 6 Months)</div>
+                    <div class="chart-wrap">
+                        <canvas id="chart-monthly-spend"></canvas>
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <div class="chart-title">Spend by Category (Stacked)</div>
+                    <div class="chart-wrap">
+                        <canvas id="chart-stacked-category"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== UPLOAD TAB ==================== -->
+        <div class="tab-content" id="tab-upload">
+            <div class="upload-area">
+                <div class="section-title" style="margin-bottom:18px;">Upload Statement</div>
+                <div class="form-group">
+                    <label class="form-label">Source</label>
+                    <select class="form-select" id="upload-source">
+                        <option value="">Select source...</option>
+                        <option value="hdfc_bank">HDFC Bank</option>
+                        <option value="icici_bank">ICICI Bank</option>
+                        <option value="icici_cc">ICICI CC</option>
+                        <option value="hdfc_cc">HDFC CC</option>
+                        <option value="amex_cc">AMEX CC</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">File</label>
+                    <input type="file" class="form-input" id="upload-file" accept=".pdf,.csv,.xls,.xlsx">
+                </div>
+                <button class="btn btn-primary" id="upload-btn" onclick="handleUpload()">Upload</button>
+                <div class="upload-progress" id="upload-progress">
+                    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+                    <div class="upload-status" id="upload-status">Uploading...</div>
+                </div>
+            </div>
+
+            <div class="section" style="margin-top:28px;">
+                <div class="section-title">Upload History</div>
+                <div class="table-wrap">
+                    <table id="table-uploads">
+                        <thead>
+                            <tr>
+                                <th>Filename</th>
+                                <th>Source</th>
+                                <th>Date</th>
+                                <th>Rows</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="upload-history-body">
+                            <tr><td colspan="5" class="empty-state"><div class="empty-text">No uploads yet</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== iSHOP TAB ==================== -->
+        <div class="tab-content" id="tab-ishop">
+            <div class="stat-cards" id="ishop-summary">
+                <div class="stat-card">
+                    <div class="stat-label">Total Face Value</div>
+                    <div class="stat-value green" id="ishop-total-face">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Cashback (18%)</div>
+                    <div class="stat-value blue" id="ishop-total-cashback">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Net Cost</div>
+                    <div class="stat-value" id="ishop-net-cost">--</div>
+                </div>
+            </div>
+
+            <div class="ishop-form">
+                <div class="form-group">
+                    <label class="form-label">Platform</label>
+                    <select class="form-select" id="ishop-platform">
+                        <option value="Amazon">Amazon</option>
+                        <option value="Blinkit">Blinkit</option>
+                        <option value="Flipkart">Flipkart</option>
+                        <option value="BigBasket">BigBasket</option>
+                        <option value="Uber">Uber</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount</label>
+                    <input type="number" class="form-input" id="ishop-amount" placeholder="e.g. 5000" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date</label>
+                    <input type="date" class="form-input" id="ishop-date">
+                </div>
+                <button class="btn btn-success" onclick="addCoupon()">Add Coupon</button>
+            </div>
+
+            <div class="table-wrap">
+                <table id="table-coupons">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('table-coupons',0)">Platform <span class="sort-arrow">&#9650;</span></th>
+                            <th onclick="sortTable('table-coupons',1)">Face Value <span class="sort-arrow">&#9650;</span></th>
+                            <th onclick="sortTable('table-coupons',2)">Cashback (18%) <span class="sort-arrow">&#9650;</span></th>
+                            <th onclick="sortTable('table-coupons',3)">Net Cost <span class="sort-arrow">&#9650;</span></th>
+                            <th onclick="sortTable('table-coupons',4)">Date <span class="sort-arrow">&#9650;</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="coupon-body">
+                        <tr><td colspan="5" class="empty-state"><div class="empty-text">No coupons added yet</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ==================== INSIGHTS TAB ==================== -->
+        <div class="tab-content" id="tab-insights">
+            <div class="section">
+                <div class="section-title">Category Trends (Month-over-Month)</div>
+                <div class="insight-grid" id="insight-cards">
+                    <div class="empty-state"><div class="empty-text">Loading insights...</div></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Cut Back Suggestions</div>
+                <div id="suggestions-list">
+                    <div class="empty-state"><div class="empty-text">Need at least 2 months of data</div></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Fixed vs Variable Spend</div>
+                <div class="card" style="max-width:480px;">
+                    <div id="ratio-labels" style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);margin-bottom:4px;">
+                        <span>Fixed: --</span>
+                        <span>Variable: --</span>
+                    </div>
+                    <div class="ratio-bar-container" id="ratio-bar">
+                        <div class="ratio-bar-fixed" style="width:50%;">50%</div>
+                        <div class="ratio-bar-variable" style="width:50%;">50%</div>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                        Fixed: Rent, Insurance, Subscriptions, EMI &nbsp;|&nbsp; Variable: Everything else
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=2"></script>
+</body>
+</html>
