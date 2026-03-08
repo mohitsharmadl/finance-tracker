@@ -119,9 +119,11 @@ class BaseParser(ABC):
         if not s or s == "-" or s.lower() == "nan":
             return None
         # Remove commas, currency symbols, spaces
-        s = re.sub(r"[,\s₹$INR]", "", s)
+        s = re.sub(r"[,\s₹$]", "", s)
+        s = re.sub(r"INR", "", s, flags=re.IGNORECASE)
         # Handle Dr/Cr suffix
         s = re.sub(r"\s*(Dr|Cr|DR|CR)\.?\s*$", "", s)
+        s = re.sub(r"^\s*(Dr|Cr|DR|CR)\.?\s*", "", s)
         # Handle parentheses for negative: (100.00)
         if s.startswith("(") and s.endswith(")"):
             s = s[1:-1]
