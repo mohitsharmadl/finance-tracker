@@ -56,23 +56,11 @@ def categorize_transaction(description: str, source: str = "") -> dict:
         "cashback_amount": None,
     }
 
-    # Check if it's an iShop coupon purchase
-    is_ishop = "ishop" in desc_lower
-
-    # Also detect ICICI + known platform as iShop
-    if not is_ishop and "icici" in source.lower():
-        for key in ISHOP_PLATFORMS:
-            if key in desc_lower:
-                is_ishop = True
-                break
+    # Only flag as iShop if description literally contains "ishop" or "i shop"
+    is_ishop = "ishop" in desc_lower or "i shop" in desc_lower
 
     if is_ishop:
         result["is_coupon"] = True
-        # Detect which platform
-        for key, platform in ISHOP_PLATFORMS.items():
-            if key in desc_lower:
-                result["coupon_platform"] = platform
-                break
 
     # Load keywords and match
     keywords = load_category_keywords()
